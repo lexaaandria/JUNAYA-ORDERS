@@ -1012,6 +1012,44 @@ body {
     font-size: var(--font-size-sm);
     color: var(--text-primary);
     border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+
+/* Kolom tanggal dengan styling khusus untuk datetime */
+.orders-table td.date-cell {
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace;
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    min-width: 130px;
+}
+
+.date-time-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.date-part {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.time-part {
+    font-size: var(--font-size-xs);
+    color: var(--apple-gray);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.time-part::before {
+    content: '';
+    width: 12px;
+    height: 12px;
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='8' cy='8' r='7' stroke='%2386868B' stroke-width='1.5'/%3E%3Cpath d='M8 4V8L11 11' stroke='%2386868B' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-size: contain;
+    background-repeat: no-repeat;
+    flex-shrink: 0;
 }
 
 .orders-table tbody tr {
