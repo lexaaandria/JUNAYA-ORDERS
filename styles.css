@@ -877,6 +877,11 @@ body {
     box-shadow: var(--shadow-glass);
 }
 
+/* Sticky header scroll indicator */
+.table-section.scrolled .orders-table thead {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
 .table-header {
     display: flex;
     justify-content: space-between;
@@ -913,7 +918,31 @@ body {
 
 .table-container {
     overflow-x: auto;
+    overflow-y: auto;
+    max-height: 600px;
     border-radius: var(--radius-lg);
+    position: relative;
+    scroll-behavior: smooth;
+}
+
+.table-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+    background: var(--apple-gray-light);
+    border-radius: var(--radius-lg);
+}
+
+.table-container::-webkit-scrollbar-thumb {
+    background: var(--apple-gray);
+    border-radius: var(--radius-lg);
+    border: 2px solid var(--apple-gray-light);
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
 }
 
 .orders-table {
@@ -924,7 +953,29 @@ body {
 }
 
 .orders-table thead {
-    background: var(--apple-gray-light);
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    transition: box-shadow 0.3s ease;
+}
+
+.orders-table thead::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--border-color);
+}
+
+/* Enhanced shadow when scrolled */
+.table-section.scrolled .orders-table thead {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .orders-table th {
@@ -936,6 +987,8 @@ body {
     text-transform: uppercase;
     letter-spacing: 0.5px;
     border-bottom: 1px solid var(--border-color);
+    background: var(--glass-bg);
+    position: relative;
 }
 
 .orders-table td {
