@@ -819,6 +819,20 @@ document.addEventListener('DOMContentLoaded', function() {
     updateDateTime();
     setInterval(updateDateTime, 1000);
     
+    // Sticky table header scroll effect
+    const tableContainer = document.querySelector('.table-container');
+    const tableSection = document.querySelector('.table-section');
+    
+    if (tableContainer && tableSection) {
+        tableContainer.addEventListener('scroll', function() {
+            if (this.scrollTop > 0) {
+                tableSection.classList.add('scrolled');
+            } else {
+                tableSection.classList.remove('scrolled');
+            }
+        });
+    }
+    
     // Auth event listeners
     elements.btnLogin.addEventListener('click', handleLogin);
     elements.btnRegister.addEventListener('click', handleRegister);
