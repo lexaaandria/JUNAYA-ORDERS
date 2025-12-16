@@ -31,6 +31,7 @@ const PRODUCTS = {
 // === Global State ===
 let orders = [];
 let deleteTargetId = null;
+let editTargetId = null;
 let filteredOrders = [];
 
 // === DOM Elements ===
@@ -98,61 +99,220 @@ const elements = {
     searchInput: document.getElementById('searchInput'),
     filterStatus: document.getElementById('filterStatus'),
     filterPayment: document.getElementById('filterPayment'),
-    clearFilter: document.getElementById('clearFilter'),
+    clearFilterBtn: document.getElementById('clearFilter'),
     
-    // Button Elements
+    // Action Buttons
     exportBtn: document.getElementById('exportBtn'),
     clearAllBtn: document.getElementById('clearAllBtn'),
     
-    // Modal Elements
+    // Modals
     deleteModal: document.getElementById('deleteModal'),
-    confirmDelete: document.getElementById('confirmDelete'),
     cancelDelete: document.getElementById('cancelDelete'),
+    confirmDelete: document.getElementById('confirmDelete'),
     
-    // Date/Time Elements
+    // Date & Time
     currentDate: document.getElementById('currentDate'),
     currentTime: document.getElementById('currentTime')
 };
 
 // ========================================
-// === Initialization ===
+// === Firebase Functions ===
 // ========================================
 
-document.addEventListener('DOMContentLoaded', () => {
-    initializeFirebase();
-    setupEventListeners();
-    updateDateTime();
-    setInterval(updateDateTime, 1000);
-    checkAuthState();
-});
-
-function initializeFirebase() {
+async function initializeFirebase() {
     try {
         app = firebase.initializeApp(firebaseConfig);
         auth = firebase.auth();
         database = firebase.database();
-        console.log('🔥 Firebase initialized successfully');
+        
+        // Listen for auth state changes
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                showMainApp();
+                setupRealtimeListener();
+            } else {
+                currentUser = null;
+                showLoginScreen();
+            }
+        });
+        
     } catch (error) {
         console.error('Firebase initialization error:', error);
-        showNotification('⚠️ Firebase configuration needed. Please update firebaseConfig in script.js', 'error');
+        showNotification('❌ Error connecting to database', 'error');
     }
 }
 
-function checkAuthState() {
-    auth.onAuthStateChanged((user) => {
-        if (user) {
-            currentUser = user;
-            showMainApp();
-            loadUserOrders();
-        } else {
-            showLoginScreen();
-        }
+function setupRealtimeListener() {
+    if (!currentUser) return;
+    
+    ordersRef = database.ref(`users/${currentUser.uid}/orders`);
+    
+    ordersRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        orders = data ? Object.values(data) : [];
+        renderOrders();
+        updateAllStatistics();
+        updateSyncStatus(true);
     });
 }
 
+function updateSyncStatus(synced) {
+    if (synced) {
+        elements.syncStatus.innerHTML = '<span class="sync-icon">☁️</span><span>Data tersinkronisasi</span>';
+        elements.syncStatus.style.color = 'var(--accent-green)';
+    } else {
+        elements.syncStatus.innerHTML = '<span class="sync-icon">⏳</span><span>Menyinkronkan...</span>';
+        elements.syncStatus.style.color = 'var(--accent-orange)';
+    }
+}
+
+async function saveOrderToFirebase(order) {
+    if (!currentUser) return;
+    
+    updateSyncStatus(false);
+    try {
+        await database.ref(`users/${currentUser.uid}/orders/${order.id}`).set(order);
+        updateSyncStatus(true);
+    } catch (error) {
+        console.error('Error saving order:', error);
+        showNotification('❌ Error saving order', 'error');
+        updateSyncStatus(true);
+    }
+}
+
+async function deleteOrderFromFirebase(orderId) {
+    if (!currentUser) return;
+    
+    updateSyncStatus(false);
+    try {
+        await database.ref(`users/${currentUser.uid}/orders/${orderId}`).remove();
+        updateSyncStatus(true);
+    } catch (error) {
+        console.error('Error deleting order:', error);
+        showNotification('❌ Error deleting order', 'error');
+        updateSyncStatus(true);
+    }
+}
+
+async function clearAllOrdersFromFirebase() {
+    if (!currentUser) return;
+    
+    updateSyncStatus(false);
+    try {
+        await database.ref(`users/${currentUser.uid}/orders`).remove();
+        updateSyncStatus(true);
+    } catch (error) {
+        console.error('Error clearing orders:', error);
+        showNotification('❌ Error clearing orders', 'error');
+        updateSyncStatus(true);
+    }
+}
+
 // ========================================
-// === Screen Management ===
+// === Authentication Functions ===
 // ========================================
+
+async function handleLogin(e) {
+    e.preventDefault();
+    const email = elements.loginEmail.value.trim();
+    const password = elements.loginPassword.value;
+    
+    if (!email || !password) {
+        showNotification('⚠️ Please fill in all fields', 'warning');
+        return;
+    }
+    
+    try {
+        elements.btnLogin.disabled = true;
+        elements.btnLogin.textContent = 'Logging in...';
+        
+        await auth.signInWithEmailAndPassword(email, password);
+        showNotification('✅ Login successful!', 'success');
+        
+    } catch (error) {
+        console.error('Login error:', error);
+        let message = 'Login failed';
+        
+        if (error.code === 'auth/user-not-found') {
+            message = '❌ User not found';
+        } else if (error.code === 'auth/wrong-password') {
+            message = '❌ Wrong password';
+        } else if (error.code === 'auth/invalid-email') {
+            message = '❌ Invalid email';
+        }
+        
+        showNotification(message, 'error');
+    } finally {
+        elements.btnLogin.disabled = false;
+        elements.btnLogin.innerHTML = '<svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 1V8M8 8V15M8 8H15M8 8H1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Login</span>';
+    }
+}
+
+async function handleRegister(e) {
+    e.preventDefault();
+    const name = elements.registerName.value.trim();
+    const email = elements.registerEmail.value.trim();
+    const password = elements.registerPassword.value;
+    
+    if (!name || !email || !password) {
+        showNotification('⚠️ Please fill in all fields', 'warning');
+        return;
+    }
+    
+    if (password.length < 6) {
+        showNotification('⚠️ Password must be at least 6 characters', 'warning');
+        return;
+    }
+    
+    try {
+        elements.btnRegister.disabled = true;
+        elements.btnRegister.textContent = 'Creating account...';
+        
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        await userCredential.user.updateProfile({ displayName: name });
+        
+        showNotification('✅ Account created successfully!', 'success');
+        
+    } catch (error) {
+        console.error('Registration error:', error);
+        let message = 'Registration failed';
+        
+        if (error.code === 'auth/email-already-in-use') {
+            message = '❌ Email already in use';
+        } else if (error.code === 'auth/invalid-email') {
+            message = '❌ Invalid email';
+        } else if (error.code === 'auth/weak-password') {
+            message = '❌ Password is too weak';
+        }
+        
+        showNotification(message, 'error');
+    } finally {
+        elements.btnRegister.disabled = false;
+        elements.btnRegister.innerHTML = '<svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 3V8M8 8V13M8 8H13M8 8H3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Daftar Sekarang</span>';
+    }
+}
+
+async function handleLogout() {
+    try {
+        await auth.signOut();
+        showNotification('👋 Logged out successfully', 'success');
+    } catch (error) {
+        console.error('Logout error:', error);
+        showNotification('❌ Error logging out', 'error');
+    }
+}
+
+function showMainApp() {
+    elements.loginScreen.style.display = 'none';
+    elements.registerScreen.style.display = 'none';
+    elements.mainApp.style.display = 'block';
+    
+    if (currentUser) {
+        elements.userName.textContent = currentUser.displayName || 'User';
+        elements.userEmail.textContent = currentUser.email;
+    }
+}
 
 function showLoginScreen() {
     elements.loginScreen.style.display = 'flex';
@@ -166,442 +326,103 @@ function showRegisterScreen() {
     elements.mainApp.style.display = 'none';
 }
 
-function showMainApp() {
-    elements.loginScreen.style.display = 'none';
-    elements.registerScreen.style.display = 'none';
-    elements.mainApp.style.display = 'block';
-    
-    // Update user info
-    elements.userName.textContent = currentUser.displayName || 'User';
-    elements.userEmail.textContent = currentUser.email;
-}
-
 // ========================================
-// === Authentication Functions ===
+// === Order Form Functions ===
 // ========================================
 
-async function handleLogin() {
-    const email = elements.loginEmail.value.trim();
-    const password = elements.loginPassword.value;
+function handleQuickCode() {
+    const code = elements.quickCode.value.toUpperCase();
+    const product = PRODUCTS[code];
     
-    if (!email || !password) {
-        showNotification('❌ Please fill all fields', 'error');
-        return;
-    }
-    
-    elements.btnLogin.disabled = true;
-    elements.btnLogin.innerHTML = '<span class="loading-spinner"></span> Logging in...';
-    
-    try {
-        await auth.signInWithEmailAndPassword(email, password);
-        showNotification('✅ Login successful!', 'success');
-    } catch (error) {
-        console.error('Login error:', error);
-        showNotification(`❌ Login failed: ${error.message}`, 'error');
-    } finally {
-        elements.btnLogin.disabled = false;
-        elements.btnLogin.innerHTML = '<span>🔐</span> Login';
-    }
-}
-
-async function handleRegister() {
-    const name = elements.registerName.value.trim();
-    const email = elements.registerEmail.value.trim();
-    const password = elements.registerPassword.value;
-    
-    if (!name || !email || !password) {
-        showNotification('❌ Please fill all fields', 'error');
-        return;
-    }
-    
-    if (password.length < 6) {
-        showNotification('❌ Password must be at least 6 characters', 'error');
-        return;
-    }
-    
-    elements.btnRegister.disabled = true;
-    elements.btnRegister.innerHTML = '<span class="loading-spinner"></span> Creating account...';
-    
-    try {
-        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-        await userCredential.user.updateProfile({ displayName: name });
-        showNotification('✅ Account created successfully!', 'success');
-    } catch (error) {
-        console.error('Registration error:', error);
-        showNotification(`❌ Registration failed: ${error.message}`, 'error');
-    } finally {
-        elements.btnRegister.disabled = false;
-        elements.btnRegister.innerHTML = '<span>✨</span> Daftar Sekarang';
-    }
-}
-
-async function handleLogout() {
-    const confirmed = confirm('Are you sure you want to logout?');
-    if (!confirmed) return;
-    
-    try {
-        await auth.signOut();
-        orders = [];
-        showNotification('👋 Logged out successfully', 'success');
-    } catch (error) {
-        console.error('Logout error:', error);
-        showNotification('❌ Logout failed', 'error');
-    }
-}
-
-// ========================================
-// === Firebase Database Functions ===
-// ========================================
-
-function loadUserOrders() {
-    if (!currentUser) return;
-    
-    ordersRef = database.ref(`users/${currentUser.uid}/orders`);
-    
-    // Listen for changes
-    ordersRef.on('value', (snapshot) => {
-        const data = snapshot.val();
-        orders = data ? Object.values(data) : [];
-        renderOrders();
-        updateAllStatistics();
-        updateSyncStatus('synced');
-    });
-}
-
-async function saveOrderToFirebase(order) {
-    if (!currentUser || !ordersRef) return;
-    
-    updateSyncStatus('syncing');
-    
-    try {
-        await ordersRef.child(order.id.toString()).set(order);
-        updateSyncStatus('synced');
-    } catch (error) {
-        console.error('Save error:', error);
-        showNotification('❌ Failed to save order', 'error');
-        updateSyncStatus('error');
-    }
-}
-
-async function deleteOrderFromFirebase(orderId) {
-    if (!currentUser || !ordersRef) return;
-    
-    updateSyncStatus('syncing');
-    
-    try {
-        await ordersRef.child(orderId.toString()).remove();
-        updateSyncStatus('synced');
-    } catch (error) {
-        console.error('Delete error:', error);
-        showNotification('❌ Failed to delete order', 'error');
-        updateSyncStatus('error');
-    }
-}
-
-async function clearAllOrdersFromFirebase() {
-    if (!currentUser || !ordersRef) return;
-    
-    updateSyncStatus('syncing');
-    
-    try {
-        await ordersRef.remove();
-        orders = [];
-        updateSyncStatus('synced');
-    } catch (error) {
-        console.error('Clear all error:', error);
-        showNotification('❌ Failed to clear orders', 'error');
-        updateSyncStatus('error');
-    }
-}
-
-function updateSyncStatus(status) {
-    const syncStatus = elements.syncStatus;
-    
-    if (status === 'syncing') {
-        syncStatus.classList.add('syncing');
-        syncStatus.innerHTML = '<span class="sync-icon">⏳</span><span>Syncing...</span>';
-    } else if (status === 'synced') {
-        syncStatus.classList.remove('syncing');
-        syncStatus.innerHTML = '<span class="sync-icon">☁️</span><span>Data tersinkronisasi</span>';
-    } else if (status === 'error') {
-        syncStatus.classList.add('syncing');
-        syncStatus.innerHTML = '<span class="sync-icon">⚠️</span><span>Sync error</span>';
-    }
-}
-
-// ========================================
-// === Event Listeners Setup ===
-// ========================================
-
-function setupEventListeners() {
-    // Auth Listeners
-    elements.btnLogin.addEventListener('click', handleLogin);
-    elements.btnRegister.addEventListener('click', handleRegister);
-    elements.btnLogout.addEventListener('click', handleLogout);
-    elements.btnShowRegister.addEventListener('click', showRegisterScreen);
-    elements.btnShowLogin.addEventListener('click', showLoginScreen);
-    
-    // Enter key for login
-    elements.loginEmail.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleLogin();
-    });
-    elements.loginPassword.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleLogin();
-    });
-    
-    // Enter key for register
-    elements.registerPassword.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleRegister();
-    });
-    
-    // Form Submission
-    elements.form.addEventListener('submit', handleFormSubmit);
-    
-    // Quick Code Input
-    elements.quickCode.addEventListener('input', handleQuickCodeInput);
-    elements.quickCode.addEventListener('blur', parseQuickCode);
-    
-    // Product Code Change
-    elements.productCode.addEventListener('change', handleProductCodeChange);
-    
-    // Size Change
-    elements.size.addEventListener('change', updatePriceAndTotal);
-    
-    // Quantity Change
-    elements.quantity.addEventListener('input', updateTotal);
-    
-    // Filter Inputs
-    elements.searchInput.addEventListener('input', applyFilters);
-    elements.filterStatus.addEventListener('change', applyFilters);
-    elements.filterPayment.addEventListener('change', applyFilters);
-    elements.clearFilter.addEventListener('click', clearFilters);
-    
-    // Export Button
-    elements.exportBtn.addEventListener('click', exportToExcel);
-    
-    // Clear All Button
-    elements.clearAllBtn.addEventListener('click', confirmClearAll);
-    
-    // Modal Actions
-    elements.confirmDelete.addEventListener('click', deleteOrder);
-    elements.cancelDelete.addEventListener('click', closeDeleteModal);
-    
-    // Click outside modal to close
-    elements.deleteModal.addEventListener('click', (e) => {
-        if (e.target === elements.deleteModal) {
-            closeDeleteModal();
-        }
-    });
-}
-
-// ========================================
-// === Date and Time Functions ===
-// ========================================
-
-function updateDateTime() {
-    const now = new Date();
-    
-    const dateOptions = { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-    };
-    const dateStr = now.toLocaleDateString('id-ID', dateOptions);
-    elements.currentDate.textContent = dateStr;
-    
-    const timeStr = now.toLocaleTimeString('id-ID', { 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        second: '2-digit' 
-    });
-    elements.currentTime.textContent = timeStr;
-}
-
-function getCurrentDateTime() {
-    const now = new Date();
-    const date = now.toLocaleDateString('id-ID', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-    });
-    const time = now.toLocaleTimeString('id-ID', {
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-    return `${date} ${time}`;
-}
-
-// ========================================
-// === Quick Code Parser ===
-// ========================================
-
-function handleQuickCodeInput(e) {
-    const value = e.target.value.trim().toUpperCase();
-    if (value.length > 0) {
-        e.target.style.borderColor = '#FF9500';
+    if (product) {
+        elements.productCode.value = code;
+        elements.productName.value = product.name;
+        elements.size.value = product.size;
+        elements.price.value = product.price;
+        calculateTotal();
     } else {
-        e.target.style.borderColor = '';
-    }
-}
-
-function parseQuickCode() {
-    const quickCodeValue = elements.quickCode.value.trim().toUpperCase();
-    
-    if (!quickCodeValue) return;
-    
-    console.log('Parsing Quick Code:', quickCodeValue);
-    
-    let productCode = '';
-    let size = '';
-    let quantity = 1;
-    
-    const pattern1 = /^(CTM|CTS|MTM|MTS)([SM])(\d+)?$/;
-    const pattern2 = /^(CTM|CTS|MTM|MTS)(\d+)?$/;
-    
-    let match = quickCodeValue.match(pattern1);
-    
-    if (match) {
-        productCode = match[1];
-        const sizeChar = match[2];
-        size = sizeChar === 'S' ? 'Small' : 'Medium';
-        quantity = match[3] ? parseInt(match[3]) : 1;
-    } else {
-        match = quickCodeValue.match(pattern2);
-        if (match) {
-            productCode = match[1];
-            quantity = match[2] ? parseInt(match[2]) : 1;
-            size = productCode.endsWith('S') ? 'Small' : 'Medium';
-        }
-    }
-    
-    if (productCode && PRODUCTS[productCode]) {
-        elements.productCode.value = productCode;
-        handleProductCodeChange();
-        
-        if (size) {
-            elements.size.value = size;
-            updatePriceAndTotal();
-        }
-        
-        if (quantity) {
-            elements.quantity.value = quantity;
-            updateTotal();
-        }
-        
-        elements.quickCode.style.borderColor = '#34C759';
-        setTimeout(() => {
-            elements.quickCode.style.borderColor = '';
-        }, 2000);
-        
-        showNotification(`✅ Quick Code Parsed: ${PRODUCTS[productCode].name} ${size} x${quantity}`, 'success');
-    } else if (quickCodeValue) {
-        elements.quickCode.style.borderColor = '#FF3B30';
-        showNotification('❌ Invalid Quick Code Format', 'error');
-        setTimeout(() => {
-            elements.quickCode.style.borderColor = '';
-        }, 2000);
-    }
-}
-
-// ========================================
-// === Product Selection Handlers ===
-// ========================================
-
-function handleProductCodeChange() {
-    const productCode = elements.productCode.value;
-    
-    if (!productCode) {
+        elements.productCode.value = '';
         elements.productName.value = '';
         elements.size.value = '';
         elements.price.value = '';
         elements.total.value = '';
-        return;
     }
+}
+
+function handleProductCodeChange() {
+    const code = elements.productCode.value.toUpperCase();
+    elements.quickCode.value = code;
+    const product = PRODUCTS[code];
     
-    const product = PRODUCTS[productCode];
     if (product) {
         elements.productName.value = product.name;
         elements.size.value = product.size;
-        updatePriceAndTotal();
+        elements.price.value = product.price;
+        calculateTotal();
     }
 }
 
-function updatePriceAndTotal() {
-    const productCode = elements.productCode.value;
-    const size = elements.size.value;
-    
-    if (!productCode || !size) {
-        elements.price.value = '';
-        elements.total.value = '';
-        return;
-    }
-    
-    let matchingProduct = null;
-    for (const [code, product] of Object.entries(PRODUCTS)) {
-        if (code.startsWith(productCode.substring(0, 2)) && product.size === size) {
-            matchingProduct = product;
-            break;
-        }
-    }
-    
-    if (matchingProduct) {
-        elements.price.value = formatCurrency(matchingProduct.price);
-        updateTotal();
-    }
+function calculateTotal() {
+    const quantity = parseInt(elements.quantity.value) || 0;
+    const price = parseInt(elements.price.value) || 0;
+    const total = quantity * price;
+    elements.total.value = total;
 }
-
-function updateTotal() {
-    const priceText = elements.price.value.replace(/[^\d]/g, '');
-    const price = parseInt(priceText) || 0;
-    const quantity = parseInt(elements.quantity.value) || 1;
-    
-    const total = price * quantity;
-    elements.total.value = formatCurrency(total);
-}
-
-// ========================================
-// === Form Submission ===
-// ========================================
 
 async function handleFormSubmit(e) {
     e.preventDefault();
     
-    const formData = {
-        id: Date.now(),
-        date: getCurrentDateTime(),
-        customerName: elements.customerName.value.trim(),
-        productCode: elements.productCode.value,
-        productName: elements.productName.value,
-        size: elements.size.value,
-        quantity: parseInt(elements.quantity.value),
-        price: parseInt(elements.price.value.replace(/[^\d]/g, '')),
-        total: parseInt(elements.total.value.replace(/[^\d]/g, '')),
-        paymentMethod: elements.paymentMethod.value,
-        status: elements.status.value
-    };
+    const customerName = elements.customerName.value.trim();
+    const productCode = elements.productCode.value.trim().toUpperCase();
+    const productName = elements.productName.value.trim();
+    const size = elements.size.value;
+    const quantity = parseInt(elements.quantity.value);
+    const price = parseInt(elements.price.value);
+    const total = parseInt(elements.total.value);
+    const paymentMethod = elements.paymentMethod.value;
+    const status = elements.status.value;
     
-    if (!formData.customerName || !formData.productCode || !formData.size || 
-        !formData.quantity || !formData.price || !formData.paymentMethod) {
-        showNotification('❌ Please fill all required fields', 'error');
+    if (!customerName || !productCode || !productName || !size || !quantity || !price) {
+        showNotification('⚠️ Please fill in all required fields', 'warning');
         return;
     }
     
-    await saveOrderToFirebase(formData);
+    const order = {
+        id: editTargetId || Date.now(),
+        date: new Date().toLocaleDateString('id-ID'),
+        customerName,
+        productCode,
+        productName,
+        size,
+        quantity,
+        price,
+        total,
+        paymentMethod,
+        status,
+        timestamp: Date.now()
+    };
+    
+    await saveOrderToFirebase(order);
+    
+    if (editTargetId) {
+        showNotification(`✅ Order for ${customerName} updated successfully`, 'success');
+        editTargetId = null;
+        elements.form.querySelector('button[type="submit"]').innerHTML = '<svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 3V8M8 8V13M8 8H13M8 8H3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Tambah Order';
+    } else {
+        showNotification(`✅ Order for ${customerName} added successfully`, 'success');
+    }
     
     elements.form.reset();
-    elements.productName.value = '';
-    elements.price.value = '';
-    elements.total.value = '';
     elements.quickCode.value = '';
-    
-    showNotification(`✅ Order added successfully for ${formData.customerName}`, 'success');
-    
+    scrollToTable();
+}
+
+function scrollToTable() {
     document.querySelector('.table-section').scrollIntoView({ behavior: 'smooth' });
 }
 
 // ========================================
-// === Render Orders ===
+// === Render Orders with Action Menu ===
 // ========================================
 
 function renderOrders() {
@@ -635,25 +456,92 @@ function createOrderRow(order, rowNumber) {
     tr.setAttribute('data-id', order.id);
     
     tr.innerHTML = `
-        <td>${rowNumber}</td>
+        <td style="text-align: center;">${rowNumber}</td>
         <td>${order.date}</td>
         <td><strong>${order.customerName}</strong></td>
-        <td><span class="code-badge">${order.productCode}</span></td>
+        <td style="text-align: center;"><span class="code-badge">${order.productCode}</span></td>
         <td>${order.productName}</td>
-        <td><span class="size-badge">${order.size}</span></td>
-        <td><strong>${order.quantity}</strong></td>
-        <td>${formatCurrency(order.price)}</td>
-        <td><strong>${formatCurrency(order.total)}</strong></td>
-        <td><span class="payment-badge">${order.paymentMethod}</span></td>
-        <td><span class="status-badge status-${order.status.toLowerCase()}">${order.status}</span></td>
-        <td>
-            <button class="btn-delete" onclick="confirmDelete(${order.id})">
-                🗑️ Delete
-            </button>
+        <td style="text-align: center;"><span class="size-badge">${order.size}</span></td>
+        <td style="text-align: center;"><strong>${order.quantity}</strong></td>
+        <td style="text-align: right;" class="price-cell">${formatCurrency(order.price)}</td>
+        <td style="text-align: right;" class="price-cell"><strong>${formatCurrency(order.total)}</strong></td>
+        <td style="text-align: center;"><span class="payment-badge">${order.paymentMethod}</span></td>
+        <td style="text-align: center;"><span class="status-badge status-${order.status.toLowerCase()}">${order.status}</span></td>
+        <td style="text-align: center;">
+            <div class="action-menu-container">
+                <button class="action-menu-btn" onclick="toggleActionMenu(event, ${order.id})">⋮</button>
+                <div class="action-menu-dropdown" id="menu-${order.id}">
+                    <button class="action-menu-item" onclick="editOrder(${order.id})">
+                        <span>✏️</span>
+                        <span>Edit</span>
+                    </button>
+                    <button class="action-menu-item delete" onclick="confirmDelete(${order.id})">
+                        <span>🗑️</span>
+                        <span>Hapus</span>
+                    </button>
+                </div>
+            </div>
         </td>
     `;
     
     return tr;
+}
+
+// ========================================
+// === Action Menu Functions ===
+// ========================================
+
+function toggleActionMenu(event, orderId) {
+    event.stopPropagation();
+    
+    // Close all other menus
+    document.querySelectorAll('.action-menu-dropdown').forEach(menu => {
+        if (menu.id !== `menu-${orderId}`) {
+            menu.classList.remove('show');
+        }
+    });
+    
+    // Toggle current menu
+    const menu = document.getElementById(`menu-${orderId}`);
+    menu.classList.toggle('show');
+}
+
+// Close menu when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.action-menu-container')) {
+        document.querySelectorAll('.action-menu-dropdown').forEach(menu => {
+            menu.classList.remove('show');
+        });
+    }
+});
+
+function editOrder(orderId) {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+    
+    // Close menu
+    document.getElementById(`menu-${orderId}`).classList.remove('show');
+    
+    // Fill form with order data
+    elements.customerName.value = order.customerName;
+    elements.quickCode.value = order.productCode;
+    elements.productCode.value = order.productCode;
+    elements.productName.value = order.productName;
+    elements.size.value = order.size;
+    elements.quantity.value = order.quantity;
+    elements.price.value = order.price;
+    elements.total.value = order.total;
+    elements.paymentMethod.value = order.paymentMethod;
+    elements.status.value = order.status;
+    
+    // Set edit mode
+    editTargetId = orderId;
+    elements.form.querySelector('button[type="submit"]').innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H16L21 8V19C21 20.1046 20.1046 21 19 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 21V13H7V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 3V8H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Update Order';
+    
+    // Scroll to form
+    document.querySelector('.form-section').scrollIntoView({ behavior: 'smooth' });
+    
+    showNotification('✏️ Edit mode activated', 'info');
 }
 
 // ========================================
@@ -698,7 +586,8 @@ function updatePriceStats() {
     const priceMedium = orders.filter(o => o.size === 'Medium').reduce((sum, o) => sum + o.total, 0);
     elements.totalPriceMedium.textContent = formatCurrency(priceMedium);
     
-    elements.grandTotalPrice.textContent = formatCurrency(priceSmall + priceMedium);
+    const grandTotal = priceSmall + priceMedium;
+    elements.grandTotalPrice.textContent = formatCurrency(grandTotal);
 }
 
 function updatePaymentStats() {
@@ -713,18 +602,18 @@ function updatePaymentStats() {
 }
 
 function updateProductStats() {
-    const classic = orders.filter(o => o.productName === 'Classic Tiramisu').reduce((sum, o) => sum + o.quantity, 0);
+    const classic = orders.filter(o => o.productName.includes('Classic')).reduce((sum, o) => sum + o.quantity, 0);
     elements.totalClassic.textContent = classic;
     
-    const matcha = orders.filter(o => o.productName === 'Matcha Missu').reduce((sum, o) => sum + o.quantity, 0);
+    const matcha = orders.filter(o => o.productName.includes('Matcha')).reduce((sum, o) => sum + o.quantity, 0);
     elements.totalMatcha.textContent = matcha;
 }
 
 // ========================================
-// === Filter Functions ===
+// === Filter & Search Functions ===
 // ========================================
 
-function applyFilters() {
+function handleSearch() {
     const searchTerm = elements.searchInput.value.toLowerCase();
     const statusFilter = elements.filterStatus.value;
     const paymentFilter = elements.filterPayment.value;
@@ -758,8 +647,11 @@ function clearFilters() {
 // ========================================
 
 function confirmDelete(orderId) {
+    // Close menu
+    document.getElementById(`menu-${orderId}`).classList.remove('show');
+    
     deleteTargetId = orderId;
-    elements.deleteModal.classList.add('active');
+    elements.deleteModal.classList.add('show');
 }
 
 async function deleteOrder() {
@@ -775,7 +667,7 @@ async function deleteOrder() {
 }
 
 function closeDeleteModal() {
-    elements.deleteModal.classList.remove('active');
+    elements.deleteModal.classList.remove('show');
     deleteTargetId = null;
 }
 
@@ -849,68 +741,116 @@ function showNotification(message, type = 'info') {
     
     notification.style.cssText = `
         position: fixed;
-        top: 20px;
-        right: 20px;
-        background: ${type === 'success' ? '#34C759' : type === 'error' ? '#FF3B30' : '#007AFF'};
-        color: white;
+        top: 24px;
+        right: 24px;
         padding: 16px 24px;
+        background: var(--glass-bg);
+        backdrop-filter: blur(20px) saturate(180%);
+        border: 1px solid var(--glass-border);
         border-radius: 12px;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-        z-index: 10000;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+        color: var(--text-primary);
+        font-size: 14px;
         font-weight: 600;
-        animation: slideIn 0.3s ease;
-        max-width: 400px;
+        z-index: 10001;
+        animation: slideInRight 0.3s ease-out, fadeOut 0.3s ease-out 2.7s;
     `;
     
     document.body.appendChild(notification);
     
     setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease';
-        setTimeout(() => {
-            document.body.removeChild(notification);
-        }, 300);
+        notification.remove();
     }, 3000);
 }
 
-// Add CSS animations
+// Add notification animations
 const style = document.createElement('style');
 style.textContent = `
-    @keyframes slideIn {
-        from { transform: translateX(400px); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
+    @keyframes slideInRight {
+        from {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
     }
-    @keyframes slideOut {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(400px); opacity: 0; }
-    }
-    .code-badge {
-        background: rgba(0, 122, 255, 0.1);
-        color: #007AFF;
-        padding: 4px 8px;
-        border-radius: 6px;
-        font-weight: 600;
-        font-size: 12px;
-    }
-    .size-badge {
-        background: rgba(175, 82, 222, 0.1);
-        color: #AF52DE;
-        padding: 4px 8px;
-        border-radius: 6px;
-        font-weight: 600;
-        font-size: 12px;
-    }
-    .payment-badge {
-        background: rgba(52, 199, 89, 0.1);
-        color: #34C759;
-        padding: 4px 8px;
-        border-radius: 6px;
-        font-weight: 600;
-        font-size: 12px;
+    
+    @keyframes fadeOut {
+        from {
+            opacity: 1;
+        }
+        to {
+            opacity: 0;
+        }
     }
 `;
 document.head.appendChild(style);
 
-// Make confirmDelete globally accessible
-window.confirmDelete = confirmDelete;
+function updateDateTime() {
+    const now = new Date();
+    
+    const dateOptions = { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+    };
+    elements.currentDate.textContent = now.toLocaleDateString('id-ID', dateOptions);
+    
+    const timeOptions = { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit' 
+    };
+    elements.currentTime.textContent = now.toLocaleTimeString('id-ID', timeOptions);
+}
 
-console.log('🚀 Junaya Pre-Order System with Firebase - Ready!');
+// ========================================
+// === Event Listeners ===
+// ========================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Firebase
+    initializeFirebase();
+    
+    // Update date and time
+    updateDateTime();
+    setInterval(updateDateTime, 1000);
+    
+    // Auth event listeners
+    elements.btnLogin.addEventListener('click', handleLogin);
+    elements.btnRegister.addEventListener('click', handleRegister);
+    elements.btnShowRegister.addEventListener('click', showRegisterScreen);
+    elements.btnShowLogin.addEventListener('click', showLoginScreen);
+    elements.btnLogout.addEventListener('click', handleLogout);
+    
+    // Form event listeners
+    elements.form.addEventListener('submit', handleFormSubmit);
+    elements.quickCode.addEventListener('input', handleQuickCode);
+    elements.productCode.addEventListener('change', handleProductCodeChange);
+    elements.quantity.addEventListener('input', calculateTotal);
+    elements.price.addEventListener('input', calculateTotal);
+    
+    // Filter event listeners
+    elements.searchInput.addEventListener('input', handleSearch);
+    elements.filterStatus.addEventListener('change', handleSearch);
+    elements.filterPayment.addEventListener('change', handleSearch);
+    elements.clearFilterBtn.addEventListener('click', clearFilters);
+    
+    // Action button listeners
+    elements.exportBtn.addEventListener('click', exportToExcel);
+    elements.clearAllBtn.addEventListener('click', confirmClearAll);
+    
+    // Modal listeners
+    elements.cancelDelete.addEventListener('click', closeDeleteModal);
+    elements.confirmDelete.addEventListener('click', deleteOrder);
+    
+    // Close modal on outside click
+    elements.deleteModal.addEventListener('click', function(e) {
+        if (e.target === elements.deleteModal) {
+            closeDeleteModal();
+        }
+    });
+});
