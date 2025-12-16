@@ -194,6 +194,14 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
+.logo-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 8px;
+    border-radius: var(--radius-xl);
+}
+
 .gradient-text {
     background: linear-gradient(135deg, var(--apple-blue) 0%, var(--accent-purple) 100%);
     -webkit-background-clip: text;
@@ -357,6 +365,14 @@ body {
     width: 40px;
     height: 40px;
     filter: drop-shadow(0 2px 8px rgba(0, 122, 255, 0.3));
+}
+
+.app-logo-image {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 8px rgba(0, 122, 255, 0.3));
+    border-radius: var(--radius-md);
 }
 
 .app-name {
