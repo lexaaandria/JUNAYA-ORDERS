@@ -387,9 +387,26 @@ async function handleFormSubmit(e) {
         return;
     }
     
+    // Format tanggal dengan jam
+    const now = new Date();
+    const dateOptions = { 
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit'
+    };
+    const timeOptions = {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    };
+    
+    const dateStr = now.toLocaleDateString('id-ID', dateOptions);
+    const timeStr = now.toLocaleTimeString('id-ID', timeOptions);
+    const fullDateTime = `${dateStr} ${timeStr}`;
+    
     const order = {
         id: editTargetId || Date.now(),
-        date: new Date().toLocaleDateString('id-ID'),
+        date: fullDateTime,
         customerName,
         productCode,
         productName,
@@ -455,9 +472,19 @@ function createOrderRow(order, rowNumber) {
     const tr = document.createElement('tr');
     tr.setAttribute('data-id', order.id);
     
+    // Split date and time for better display
+    let dateDisplay = order.date;
+    if (order.date.includes(' ')) {
+        const [datePart, timePart] = order.date.split(' ');
+        dateDisplay = `<div class="date-time-wrapper">
+                        <span class="date-part">${datePart}</span>
+                        <span class="time-part">${timePart}</span>
+                      </div>`;
+    }
+    
     tr.innerHTML = `
         <td style="text-align: center;">${rowNumber}</td>
-        <td>${order.date}</td>
+        <td class="date-cell">${dateDisplay}</td>
         <td><strong>${order.customerName}</strong></td>
         <td style="text-align: center;"><span class="code-badge">${order.productCode}</span></td>
         <td>${order.productName}</td>
