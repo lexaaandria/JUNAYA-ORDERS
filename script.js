@@ -4,7 +4,6 @@
 // ========================================
 
 // === Firebase Configuration ===
-// IMPORTANT: Ganti dengan Firebase config kamu sendiri dari https://console.firebase.google.com
 const firebaseConfig = {
     apiKey: "AIzaSyC61nyjf_UGfiyRGOWXkqUsAgTuJgiR_bo",
     authDomain: "junaya-web.firebaseapp.com",
@@ -58,6 +57,7 @@ const elements = {
     userName: document.getElementById('userName'),
     userEmail: document.getElementById('userEmail'),
     btnLogout: document.getElementById('btnLogout'),
+    btnEditProfile: document.getElementById('btnEditProfile'),
     syncStatus: document.getElementById('syncStatus'),
     
     // Form Elements
@@ -95,6 +95,12 @@ const elements = {
     totalClassic: document.getElementById('totalClassic'),
     totalMatcha: document.getElementById('totalMatcha'),
     
+    // Revenue Elements
+    receivedTransfer: document.getElementById('receivedTransfer'),
+    receivedCash: document.getElementById('receivedCash'),
+    receivedEWallet: document.getElementById('receivedEWallet'),
+    totalReceived: document.getElementById('totalReceived'),
+    
     // Filter Elements
     searchInput: document.getElementById('searchInput'),
     filterStatus: document.getElementById('filterStatus'),
@@ -109,6 +115,11 @@ const elements = {
     deleteModal: document.getElementById('deleteModal'),
     cancelDelete: document.getElementById('cancelDelete'),
     confirmDelete: document.getElementById('confirmDelete'),
+    editProfileModal: document.getElementById('editProfileModal'),
+    editDisplayName: document.getElementById('editDisplayName'),
+    currentEmailDisplay: document.getElementById('currentEmailDisplay'),
+    cancelEditProfile: document.getElementById('cancelEditProfile'),
+    confirmEditProfile: document.getElementById('confirmEditProfile'),
     
     // Date & Time
     currentDate: document.getElementById('currentDate'),
@@ -125,7 +136,6 @@ async function initializeFirebase() {
         auth = firebase.auth();
         database = firebase.database();
         
-        // Listen for auth state changes
         auth.onAuthStateChanged(user => {
             if (user) {
                 currentUser = user;
@@ -139,7 +149,7 @@ async function initializeFirebase() {
         
     } catch (error) {
         console.error('Firebase initialization error:', error);
-        showNotification('❌ Error connecting to database', 'error');
+        showNotification('Error connecting to database', 'error');
     }
 }
 
@@ -176,7 +186,7 @@ async function saveOrderToFirebase(order) {
         updateSyncStatus(true);
     } catch (error) {
         console.error('Error saving order:', error);
-        showNotification('❌ Error saving order', 'error');
+        showNotification('Error saving order', 'error');
         updateSyncStatus(true);
     }
 }
@@ -190,7 +200,7 @@ async function deleteOrderFromFirebase(orderId) {
         updateSyncStatus(true);
     } catch (error) {
         console.error('Error deleting order:', error);
-        showNotification('❌ Error deleting order', 'error');
+        showNotification('Error deleting order', 'error');
         updateSyncStatus(true);
     }
 }
@@ -204,7 +214,7 @@ async function clearAllOrdersFromFirebase() {
         updateSyncStatus(true);
     } catch (error) {
         console.error('Error clearing orders:', error);
-        showNotification('❌ Error clearing orders', 'error');
+        showNotification('Error clearing orders', 'error');
         updateSyncStatus(true);
     }
 }
@@ -219,7 +229,7 @@ async function handleLogin(e) {
     const password = elements.loginPassword.value;
     
     if (!email || !password) {
-        showNotification('⚠️ Please fill in all fields', 'warning');
+        showNotification('Please fill in all fields', 'warning');
         return;
     }
     
@@ -228,18 +238,18 @@ async function handleLogin(e) {
         elements.btnLogin.textContent = 'Logging in...';
         
         await auth.signInWithEmailAndPassword(email, password);
-        showNotification('✅ Login successful!', 'success');
+        showNotification('Login successful!', 'success');
         
     } catch (error) {
         console.error('Login error:', error);
         let message = 'Login failed';
         
         if (error.code === 'auth/user-not-found') {
-            message = '❌ User not found';
+            message = 'User not found';
         } else if (error.code === 'auth/wrong-password') {
-            message = '❌ Wrong password';
+            message = 'Wrong password';
         } else if (error.code === 'auth/invalid-email') {
-            message = '❌ Invalid email';
+            message = 'Invalid email';
         }
         
         showNotification(message, 'error');
@@ -256,12 +266,12 @@ async function handleRegister(e) {
     const password = elements.registerPassword.value;
     
     if (!name || !email || !password) {
-        showNotification('⚠️ Please fill in all fields', 'warning');
+        showNotification('Please fill in all fields', 'warning');
         return;
     }
     
     if (password.length < 6) {
-        showNotification('⚠️ Password must be at least 6 characters', 'warning');
+        showNotification('Password must be at least 6 characters', 'warning');
         return;
     }
     
@@ -272,18 +282,18 @@ async function handleRegister(e) {
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
         await userCredential.user.updateProfile({ displayName: name });
         
-        showNotification('✅ Account created successfully!', 'success');
+        showNotification('Account created successfully!', 'success');
         
     } catch (error) {
         console.error('Registration error:', error);
         let message = 'Registration failed';
         
         if (error.code === 'auth/email-already-in-use') {
-            message = '❌ Email already in use';
+            message = 'Email already in use';
         } else if (error.code === 'auth/invalid-email') {
-            message = '❌ Invalid email';
+            message = 'Invalid email';
         } else if (error.code === 'auth/weak-password') {
-            message = '❌ Password is too weak';
+            message = 'Password is too weak';
         }
         
         showNotification(message, 'error');
@@ -296,10 +306,10 @@ async function handleRegister(e) {
 async function handleLogout() {
     try {
         await auth.signOut();
-        showNotification('👋 Logged out successfully', 'success');
+        showNotification('Logged out successfully', 'success');
     } catch (error) {
         console.error('Logout error:', error);
-        showNotification('❌ Error logging out', 'error');
+        showNotification('Error logging out', 'error');
     }
 }
 
@@ -324,6 +334,56 @@ function showRegisterScreen() {
     elements.loginScreen.style.display = 'none';
     elements.registerScreen.style.display = 'flex';
     elements.mainApp.style.display = 'none';
+}
+
+// ========================================
+// === Edit Profile Functions ===
+// ========================================
+
+function openEditProfileModal() {
+    if (!currentUser) return;
+    
+    elements.editDisplayName.value = currentUser.displayName || '';
+    elements.currentEmailDisplay.textContent = currentUser.email;
+    elements.editProfileModal.classList.add('show');
+}
+
+function closeEditProfileModal() {
+    elements.editProfileModal.classList.remove('show');
+    elements.editDisplayName.value = '';
+}
+
+async function handleEditProfile() {
+    const newDisplayName = elements.editDisplayName.value.trim();
+    
+    if (!newDisplayName) {
+        showNotification('Please enter a name', 'warning');
+        return;
+    }
+    
+    if (!currentUser) return;
+    
+    try {
+        elements.confirmEditProfile.disabled = true;
+        elements.confirmEditProfile.textContent = 'Menyimpan...';
+        
+        await currentUser.updateProfile({
+            displayName: newDisplayName
+        });
+        
+        // Update UI
+        elements.userName.textContent = newDisplayName;
+        
+        showNotification('Profile updated successfully!', 'success');
+        closeEditProfileModal();
+        
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        showNotification('Error updating profile', 'error');
+    } finally {
+        elements.confirmEditProfile.disabled = false;
+        elements.confirmEditProfile.textContent = 'Simpan Perubahan';
+    }
 }
 
 // ========================================
@@ -383,11 +443,10 @@ async function handleFormSubmit(e) {
     const status = elements.status.value;
     
     if (!customerName || !productCode || !productName || !size || !quantity || !price) {
-        showNotification('⚠️ Please fill in all required fields', 'warning');
+        showNotification('Please fill in all required fields', 'warning');
         return;
     }
     
-    // Format tanggal dengan jam
     const now = new Date();
     const dateOptions = { 
         year: 'numeric', 
@@ -422,11 +481,11 @@ async function handleFormSubmit(e) {
     await saveOrderToFirebase(order);
     
     if (editTargetId) {
-        showNotification(`✅ Order for ${customerName} updated successfully`, 'success');
+        showNotification(`Order for ${customerName} updated successfully`, 'success');
         editTargetId = null;
         elements.form.querySelector('button[type="submit"]').innerHTML = '<svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 3V8M8 8V13M8 8H13M8 8H3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Tambah Order';
     } else {
-        showNotification(`✅ Order for ${customerName} added successfully`, 'success');
+        showNotification(`Order for ${customerName} added successfully`, 'success');
     }
     
     elements.form.reset();
@@ -439,7 +498,7 @@ function scrollToTable() {
 }
 
 // ========================================
-// === Render Orders with Action Menu ===
+// === Render Orders ===
 // ========================================
 
 function renderOrders() {
@@ -472,7 +531,6 @@ function createOrderRow(order, rowNumber) {
     const tr = document.createElement('tr');
     tr.setAttribute('data-id', order.id);
     
-    // Split date and time for better display
     let dateDisplay = order.date;
     if (order.date.includes(' ')) {
         const [datePart, timePart] = order.date.split(' ');
@@ -521,19 +579,16 @@ function createOrderRow(order, rowNumber) {
 function toggleActionMenu(event, orderId) {
     event.stopPropagation();
     
-    // Close all other menus
     document.querySelectorAll('.action-menu-dropdown').forEach(menu => {
         if (menu.id !== `menu-${orderId}`) {
             menu.classList.remove('show');
         }
     });
     
-    // Toggle current menu
     const menu = document.getElementById(`menu-${orderId}`);
     menu.classList.toggle('show');
 }
 
-// Close menu when clicking outside
 document.addEventListener('click', function(event) {
     if (!event.target.closest('.action-menu-container')) {
         document.querySelectorAll('.action-menu-dropdown').forEach(menu => {
@@ -546,10 +601,8 @@ function editOrder(orderId) {
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
     
-    // Close menu
     document.getElementById(`menu-${orderId}`).classList.remove('show');
     
-    // Fill form with order data
     elements.customerName.value = order.customerName;
     elements.quickCode.value = order.productCode;
     elements.productCode.value = order.productCode;
@@ -561,14 +614,11 @@ function editOrder(orderId) {
     elements.paymentMethod.value = order.paymentMethod;
     elements.status.value = order.status;
     
-    // Set edit mode
     editTargetId = orderId;
     elements.form.querySelector('button[type="submit"]').innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H16L21 8V19C21 20.1046 20.1046 21 19 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 21V13H7V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 3V8H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Update Order';
     
-    // Scroll to form
     document.querySelector('.form-section').scrollIntoView({ behavior: 'smooth' });
-    
-    showNotification('✏️ Edit mode activated', 'info');
+    showNotification('Edit mode activated', 'info');
 }
 
 // ========================================
@@ -580,6 +630,7 @@ function updateAllStatistics() {
     updateQuantityStats();
     updatePriceStats();
     updatePaymentStats();
+    updateReceivedMoneyStats();
     updateProductStats();
 }
 
@@ -628,6 +679,29 @@ function updatePaymentStats() {
     elements.totalEWallet.textContent = formatCurrency(ewallet);
 }
 
+function updateReceivedMoneyStats() {
+    const completedOrders = orders.filter(o => o.status === 'Completed');
+    
+    const receivedTransfer = completedOrders
+        .filter(o => o.paymentMethod === 'Transfer')
+        .reduce((sum, o) => sum + o.total, 0);
+    
+    const receivedCash = completedOrders
+        .filter(o => o.paymentMethod === 'Cash')
+        .reduce((sum, o) => sum + o.total, 0);
+    
+    const receivedEWallet = completedOrders
+        .filter(o => o.paymentMethod === 'E-Wallet')
+        .reduce((sum, o) => sum + o.total, 0);
+    
+    const totalReceived = receivedTransfer + receivedCash + receivedEWallet;
+    
+    elements.receivedTransfer.textContent = formatCurrency(receivedTransfer);
+    elements.receivedCash.textContent = formatCurrency(receivedCash);
+    elements.receivedEWallet.textContent = formatCurrency(receivedEWallet);
+    elements.totalReceived.textContent = formatCurrency(totalReceived);
+}
+
 function updateProductStats() {
     const classic = orders.filter(o => o.productName.includes('Classic')).reduce((sum, o) => sum + o.quantity, 0);
     elements.totalClassic.textContent = classic;
@@ -666,7 +740,7 @@ function clearFilters() {
     elements.filterPayment.value = '';
     filteredOrders = [];
     renderOrders();
-    showNotification('🔄 Filters cleared', 'info');
+    showNotification('Filters cleared', 'info');
 }
 
 // ========================================
@@ -674,7 +748,6 @@ function clearFilters() {
 // ========================================
 
 function confirmDelete(orderId) {
-    // Close menu
     document.getElementById(`menu-${orderId}`).classList.remove('show');
     
     deleteTargetId = orderId;
@@ -687,7 +760,7 @@ async function deleteOrder() {
     const order = orders.find(o => o.id === deleteTargetId);
     if (order) {
         await deleteOrderFromFirebase(deleteTargetId);
-        showNotification(`🗑️ Order for ${order.customerName} deleted`, 'success');
+        showNotification(`Order for ${order.customerName} deleted`, 'success');
     }
     
     closeDeleteModal();
@@ -700,17 +773,17 @@ function closeDeleteModal() {
 
 async function confirmClearAll() {
     if (orders.length === 0) {
-        showNotification('ℹ️ No orders to clear', 'info');
+        showNotification('No orders to clear', 'info');
         return;
     }
     
     const confirmed = confirm(
-        `⚠️ Are you sure you want to delete ALL ${orders.length} orders?\n\nThis action cannot be undone!`
+        `Are you sure you want to delete ALL ${orders.length} orders?\n\nThis action cannot be undone!`
     );
     
     if (confirmed) {
         await clearAllOrdersFromFirebase();
-        showNotification('🗑️ All orders cleared', 'success');
+        showNotification('All orders cleared', 'success');
     }
 }
 
@@ -720,7 +793,7 @@ async function confirmClearAll() {
 
 function exportToExcel() {
     if (orders.length === 0) {
-        showNotification('ℹ️ No orders to export', 'info');
+        showNotification('No orders to export', 'info');
         return;
     }
     
@@ -736,6 +809,18 @@ function exportToExcel() {
     csv += `Total Quantity Medium,${orders.filter(o => o.size === 'Medium').reduce((s, o) => s + o.quantity, 0)}\n`;
     csv += `Grand Total,${orders.reduce((s, o) => s + o.total, 0)}\n`;
     
+    csv += '\n=== UANG SUDAH MASUK (COMPLETED) ===\n';
+    const completedOrders = orders.filter(o => o.status === 'Completed');
+    const receivedTransfer = completedOrders.filter(o => o.paymentMethod === 'Transfer').reduce((s, o) => s + o.total, 0);
+    const receivedCash = completedOrders.filter(o => o.paymentMethod === 'Cash').reduce((s, o) => s + o.total, 0);
+    const receivedEWallet = completedOrders.filter(o => o.paymentMethod === 'E-Wallet').reduce((s, o) => s + o.total, 0);
+    const totalReceived = receivedTransfer + receivedCash + receivedEWallet;
+    
+    csv += `Transfer Masuk,${receivedTransfer}\n`;
+    csv += `Cash Masuk,${receivedCash}\n`;
+    csv += `E-Wallet Masuk,${receivedEWallet}\n`;
+    csv += `Total Uang Masuk,${totalReceived}\n`;
+    
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -750,7 +835,7 @@ function exportToExcel() {
     link.click();
     document.body.removeChild(link);
     
-    showNotification(`✅ Exported ${orders.length} orders to ${filename}`, 'success');
+    showNotification(`Exported ${orders.length} orders to ${filename}`, 'success');
 }
 
 // ========================================
@@ -790,7 +875,6 @@ function showNotification(message, type = 'info') {
     }, 3000);
 }
 
-// Add notification animations
 const style = document.createElement('style');
 style.textContent = `
     @keyframes slideInRight {
@@ -839,14 +923,11 @@ function updateDateTime() {
 // ========================================
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize Firebase
     initializeFirebase();
     
-    // Update date and time
     updateDateTime();
     setInterval(updateDateTime, 1000);
     
-    // Sticky table header scroll effect
     const tableContainer = document.querySelector('.table-container');
     const tableSection = document.querySelector('.table-section');
     
@@ -866,6 +947,11 @@ document.addEventListener('DOMContentLoaded', function() {
     elements.btnShowRegister.addEventListener('click', showRegisterScreen);
     elements.btnShowLogin.addEventListener('click', showLoginScreen);
     elements.btnLogout.addEventListener('click', handleLogout);
+    
+    // Edit Profile listeners
+    elements.btnEditProfile.addEventListener('click', openEditProfileModal);
+    elements.cancelEditProfile.addEventListener('click', closeEditProfileModal);
+    elements.confirmEditProfile.addEventListener('click', handleEditProfile);
     
     // Form event listeners
     elements.form.addEventListener('submit', handleFormSubmit);
@@ -888,10 +974,16 @@ document.addEventListener('DOMContentLoaded', function() {
     elements.cancelDelete.addEventListener('click', closeDeleteModal);
     elements.confirmDelete.addEventListener('click', deleteOrder);
     
-    // Close modal on outside click
+    // Close modals on outside click
     elements.deleteModal.addEventListener('click', function(e) {
         if (e.target === elements.deleteModal) {
             closeDeleteModal();
+        }
+    });
+    
+    elements.editProfileModal.addEventListener('click', function(e) {
+        if (e.target === elements.editProfileModal) {
+            closeEditProfileModal();
         }
     });
 });
