@@ -1468,3 +1468,352 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-secondary);
 }
+/* === User Actions (Edit Profile & Logout) === */
+.user-actions {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+}
+
+.btn-edit-profile {
+    padding: var(--space-3) var(--space-4);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.btn-edit-profile:hover {
+    background: var(--apple-blue);
+    color: white;
+    border-color: var(--apple-blue);
+    transform: translateY(-1px);
+}
+
+/* === Revenue Section (Redesigned Premium - Fixed) === */
+.revenue-section {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-2xl);
+    padding: var(--space-8);
+    margin-bottom: var(--space-8);
+    box-shadow: var(--shadow-glass);
+    position: relative;
+    overflow: hidden;
+}
+
+.revenue-section::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(52, 199, 89, 0.05) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.revenue-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-8);
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    position: relative;
+    z-index: 1;
+}
+
+.revenue-title-wrapper {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+}
+
+.revenue-icon {
+    width: 48px;
+    height: 48px;
+    padding: var(--space-3);
+    background: linear-gradient(135deg, var(--accent-green) 0%, #2FB04D 100%);
+    border-radius: var(--radius-lg);
+    stroke: white;
+    flex-shrink: 0;
+}
+
+.revenue-section h2 {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--space-1);
+}
+
+.revenue-subtitle {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.revenue-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-5);
+    background: rgba(52, 199, 89, 0.1);
+    border: 1px solid rgba(52, 199, 89, 0.3);
+    border-radius: var(--radius-full);
+    color: var(--accent-green);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.revenue-badge svg {
+    width: 16px;
+    height: 16px;
+    stroke: var(--accent-green);
+}
+
+.revenue-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--space-5);
+    position: relative;
+    z-index: 1;
+}
+
+.revenue-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    padding: var(--space-6);
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+
+.revenue-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    transition: var(--transition);
+}
+
+.transfer-card::before {
+    background: linear-gradient(90deg, #007AFF 0%, #0051D5 100%);
+}
+
+.cash-card::before {
+    background: linear-gradient(90deg, #FF9500 0%, #FF6B00 100%);
+}
+
+.ewallet-card::before {
+    background: linear-gradient(90deg, #AF52DE 0%, #8E44AD 100%);
+}
+
+.total-card::before {
+    background: linear-gradient(90deg, #34C759 0%, #2FB04D 100%);
+    height: 100%;
+    width: 4px;
+}
+
+.revenue-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.12);
+    border-color: transparent;
+}
+
+.transfer-card:hover {
+    border-color: rgba(0, 122, 255, 0.3);
+}
+
+.cash-card:hover {
+    border-color: rgba(255, 149, 0, 0.3);
+}
+
+.ewallet-card:hover {
+    border-color: rgba(175, 82, 222, 0.3);
+}
+
+.total-card {
+    background: linear-gradient(135deg, rgba(52, 199, 89, 0.08) 0%, rgba(52, 199, 89, 0.04) 100%);
+    border: 2px solid rgba(52, 199, 89, 0.3);
+}
+
+.total-card:hover {
+    border-color: rgba(52, 199, 89, 0.5);
+    box-shadow: 0 25px 50px -12px rgba(52, 199, 89, 0.25);
+}
+
+.revenue-card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-5);
+}
+
+.revenue-card-icon {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--apple-gray-light);
+    border-radius: var(--radius-md);
+    flex-shrink: 0;
+}
+
+.transfer-card .revenue-card-icon {
+    background: rgba(0, 122, 255, 0.1);
+}
+
+.transfer-card .revenue-card-icon svg {
+    stroke: var(--apple-blue);
+}
+
+.cash-card .revenue-card-icon {
+    background: rgba(255, 149, 0, 0.1);
+}
+
+.cash-card .revenue-card-icon svg {
+    stroke: var(--accent-orange);
+}
+
+.ewallet-card .revenue-card-icon {
+    background: rgba(175, 82, 222, 0.1);
+}
+
+.ewallet-card .revenue-card-icon svg {
+    stroke: var(--accent-purple);
+}
+
+.total-card .revenue-card-icon {
+    background: linear-gradient(135deg, var(--accent-green) 0%, #2FB04D 100%);
+}
+
+.total-card .revenue-card-icon svg {
+    stroke: white;
+}
+
+.revenue-card-icon svg {
+    width: 24px;
+    height: 24px;
+}
+
+.total-icon svg {
+    width: 28px !important;
+    height: 28px !important;
+}
+
+.revenue-card-label {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.total-card .revenue-card-label {
+    color: var(--accent-green);
+    font-weight: 700;
+}
+
+.revenue-card-amount {
+    font-size: var(--font-size-3xl);
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: var(--space-4);
+    letter-spacing: -0.5px;
+}
+
+.total-amount {
+    font-size: 42px;
+    color: var(--accent-green);
+}
+
+.revenue-card-footer {
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--border-color);
+}
+
+.total-card .revenue-card-footer {
+    border-top-color: rgba(52, 199, 89, 0.2);
+}
+
+.revenue-trend {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.revenue-trend-success {
+    font-size: var(--font-size-sm);
+    color: var(--accent-green);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+/* Modal Info Style */
+.modal-info {
+    margin-top: var(--space-4);
+    padding: var(--space-4);
+    background: rgba(0, 122, 255, 0.05);
+    border: 1px solid rgba(0, 122, 255, 0.2);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.modal-info strong {
+    color: var(--apple-blue);
+}
+
+/* Responsive Revenue Section */
+@media (max-width: 1024px) {
+    .revenue-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .revenue-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .revenue-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .revenue-card-amount {
+        font-size: var(--font-size-2xl);
+    }
+    
+    .total-amount {
+        font-size: 32px;
+    }
+    
+    .user-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .btn-edit-profile, .btn-logout {
+        width: 100%;
+        justify-content: center;
+    }
+}
